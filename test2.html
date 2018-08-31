@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+    body {font-family: "Inconsolata";}
+</style>
+<svg width="1000" height="700"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<link href="https://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+<script>
+var svg = d3.select("svg"),
+    width = svg.attr("width"),
+    height = svg.attr("height");
+var simulation = d3.forceSimulation()
+    .force("link", d3.forceLink().id(function(d) { return d.id; }).distance(170).strength(0.1))
+    .force("charge", d3.forceManyBody().strength(-2))
+//		.force('charge', d3.forceManyBody()
+//      .strength(-200)
+//      .theta(0.8)
+//      .distanceMax(150)
+//    )
+// 		.force('collide', d3.forceCollide()
+//       .radius(d => 40)
+//       .iterations(2)
+//     )
+    .force("center", d3.forceCenter(width / 2, height / 2));
+  
+function run(graph) {
+  
+  graph.links.forEach(function(d){
+//     d.source = d.source_id;    
+//     d.target = d.target_id;
+  });           
+  var link = svg.append("g")
+                .style("stroke", "#aaa")
+                .selectAll("line")
+                .data(graph.links)
+                .enter().append("line");
+  var node = svg.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(graph.nodes)
+            .enter().append("circle")
+            .attr("r", 5)
+            .call(d3.drag()
+              .on("start", dragstarted)
+              .on("drag", dragged)
+              .on("end", dragended));  
+/*
+  var label = svg.append("g")
+      .attr("class", "labels")
+      .selectAll("text")
+      .data(graph.nodes)
+      .enter().append("text")
+        .attr("class", "label")
+        .text(function(d) { return d.id; });
+*/
+  simulation
+      .nodes(graph.nodes)
+      .on("tick", ticked);
+  simulation.force("link")
+      .links(graph.links);
+
+  var delta = 300;
+
+  var total = numberNodes(graph.nodes);
+
+  var total_not_ip_nodes = graph.nodes.length - total;
+
+  var x1 = width/2 + delta * Math.cos(2 * Math.PI / total);
+  var y1 = height/2 + delta * Math.sin(2 * Math.PI / total);
+
+  var r = Math.sqrt((x1 - width/2)*(x1 - width/2) + (y1 - height/2)*(y1 - height/2)) - 50;
+
+  var x_position = createArrayX(total_not_ip_nodes, r);
+  var y_position = createArrayY(x_position, r);
+
+  function ticked() {
+    link
+        .attr("x1", function(d) { 
+          if(d.source.label == "1"){
+            return x_position[d.source.group];
+          }
+          else{
+            return width/2 + delta * Math.cos(2 * Math.PI * d.source.group / total);
+          }
+        })
+        .attr("y1", function(d) {
+          if(d.source.label == "1"){
+            return y_position[d.source.group];
+          }
+          else{
+            return height/2 + delta * Math.sin(2 * Math.PI * d.source.group / total);
+          } 
+        })
+        .attr("x2", function(d) {
+          if(d.target.label == "1"){
+            return x_position[d.target.group];
+          }
+          else{
+            return width/2 + delta * Math.cos(2 * Math.PI * d.target.group / total);
+          } 
+        })
+        .attr("y2", function(d) { 
+          if(d.target.label == "1"){
+            return y_position[d.target.group];
+          }
+          else{
+            return height/2 + delta * Math.sin(2 * Math.PI * d.target.group / total);
+          }
+        });
+    node
+         .attr("r", 2)
+         .style("fill", "#827f7f")
+         .style("stroke", "#424242")
+         .style("stroke-width", "1px")
+         .attr("cx", function (d) {
+          if(d.label == "1"){
+            return x_position[d.group];
+          }
+          // VER ECC DE LA CIRCUNFERENCIA PARA CALCULAR LOS D.X Y D.Y DE LOS OTROS NODOS
+          else{
+            var cx = width/2 + delta * Math.cos(2 * Math.PI * d.group / total);
+            //count_cx = count_cx + 1;
+            return cx;
+          }
+        })
+         .attr("cy", function(d) { 
+          if(d.label == "1"){
+            return y_position[d.group];
+          }
+          else{
+            var cy = height/2 + delta * Math.sin(2 * Math.PI * d.group / total);
+            //count_cy = count_cy + 1;
+            return cy;
+          }
+        });  
+    label
+    		.attr("x", function(d) { //return width/2 - 10 + 310 * Math.cos(2 * Math.PI * d.index / total_nodes); 
+          if(d.label == "1"){
+            return x_position[d.group];
+          }
+          // VER ECC DE LA CIRCUNFERENCIA PARA CALCULAR LOS D.X Y D.Y DE LOS OTROS NODOS
+          else{
+            var cx = width/2 + delta * Math.cos(2 * Math.PI * d.group / total);
+            //count_cx = count_cx + 1;
+            return cx;
+          }
+        })
+        .attr("y", function (d) { //return height/2 + 4 + 310 * Math.sin(2 * Math.PI * d.index / total_nodes); 
+          if(d.label == "1"){
+            return y_position[d.group];
+          }
+          else{
+            var cy = height/2 + delta * Math.sin(2 * Math.PI * d.group / total);
+            //count_cy = count_cy + 1;
+            return cy;
+          }
+        })
+        .style("font-size", "10px").style("fill", "#333");     
+  }
+}
+function dragstarted(d) {
+  if (!d3.event.active) simulation.alphaTarget(0.3).restart()
+  d.fx = d.x
+  d.fy = d.y
+//  simulation.fix(d);
+}
+function dragged(d) {
+  d.fx = d3.event.x
+  d.fy = d3.event.y
+//  simulation.fix(d, d3.event.x, d3.event.y);
+}
+function dragended(d) {
+  d.fx = d3.event.x
+  d.fy = d3.event.y
+  if (!d3.event.active) simulation.alphaTarget(0);
+  //simulation.unfix(d);
+}
+
+function numberNodes(node){
+  var number = 0;
+  node.forEach(function(d){
+    if(d.label == "2"){
+        number = number + 1;
+    }
+  });
+  return number;
+}
+
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
+
+function createArrayX(nodes, r){
+  var array = [];
+  var alpha = (2*r/nodes);
+  var delta = ((2*r - alpha)/nodes);
+  for(var i = (width/2 - r + alpha); i < (r + width/2); i += delta){
+    array.push(i);
+  }
+  return array;
+}
+
+function createArrayY(arrayX, r){
+  arrayY = []
+  for(var i = 0; i < arrayX.length; i++){
+    var cx = arrayX[i] - width/2;
+    var ratio = Math.sqrt(r*r - cx*cx) + height/2;
+    var cy = ratio;
+    while(cy >= ratio || cy <= height - ratio){
+      console.log(cy);
+      cy = ratio;
+      var rand = 0;
+      if(Math.abs(cx) >= r - 50){
+        rand = getRandomInt(100);
+      } else {
+        rand = getRandomInt(450);
+      }
+      cy = cy - rand;
+    }
+    arrayY.push(cy);
+  }
+  return arrayY;
+}
+
+d3.json("Graph2.json",function(error,graph) {
+    run(graph)
+})
+</script>

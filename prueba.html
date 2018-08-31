@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<svg width="960" height="500" viewBox="-480 -250 960 500">
+</svg>
+<script src="https://d3js.org/d3-array.v1.min.js"></script>
+<script src="https://d3js.org/d3-collection.v1.min.js"></script>
+<script src="https://d3js.org/d3-dispatch.v1.min.js"></script>
+<script src="https://d3js.org/d3-quadtree.v1.min.js"></script>
+<script src="https://d3js.org/d3-selection.v1.min.js"></script>
+<script src="https://d3js.org/d3-timer.v1.min.js"></script>
+<script src="https://d3js.org/d3-force.v1.min.js"></script>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+var nodes = [].concat(
+  d3.range(80).map(function() { return {type: "a"}; }),
+  d3.range(160).map(function() { return {type: "b"}; })
+);
+console.log(nodes)
+var links = [{"source": 10, "target": 20},
+    {"source": 20, "target": 40},
+    {"source": 40, "target": 80},
+    {"source": 80, "target": 160},
+    {"source": 160, "target": 30}]
+
+/*const graph = {
+  "nodes": [
+    {"id": "1"},
+    {"id": "2"},
+    {"id": "4"},
+    {"id": "8"},
+    {"id": "16"},
+    {"id": "11"},
+    {"id": "12"},
+    {"id": "14"},
+    {"id": "18"},
+    {"id": "116"}
+  ],
+  "links": [
+    {"source": "1", "target": "2"},
+    {"source": "2", "target": "4"},
+    {"source": "4", "target": "4"},
+    {"source": "4", "target": "8"},
+    {"source": "4", "target": "8"},
+    {"source": "4", "target": "8"},
+    {"source": "8", "target": "16"},
+    {"source": "16", "target": "1"}
+  ]
+}
+*/
+
+var link = d3.select("svg")
+              .append("g")
+              .style("stroke", "#aaa")
+              .selectAll("line")
+              .data(links)
+              .enter().append("line");
+
+var node = d3.select("svg")
+  .append("g")
+  .selectAll("circle")
+  .data(nodes)
+  .enter().append("circle")
+  .attr("r", 2.5)
+  .attr("fill", function(d) { return d.type === "a" ? "brown" : "steelblue"; })
+  .call(d3.drag()
+              .on("start", dragstarted)
+              .on("drag", dragged)
+              .on("end", dragended));
+
+var simulation = d3.forceSimulation()
+    .force("link", d3.forceLink().id(function(d) { return d.index; }))
+    .force("charge", d3.forceCollide().radius(5))
+    .force("r", d3.forceRadial(function(d) { return //d.type === "a" ? 100 : 200; 
+    if(d.type === "b"){
+      return 200
+    }}))
+    .on("tick", ticked);
+
+simulation
+      .nodes(nodes)
+      .on("tick", ticked);
+simulation.force("link")
+      .links(links);
+
+function ticked() {
+  node
+      .attr("cx", function(d) { return d.x; })
+      .attr("cy", function(d) { return d.y; });
+}
+
+function dragstarted(d) {
+  if (!d3.event.active) simulation.alphaTarget(0.3).restart()
+  d.fx = d.x
+  d.fy = d.y
+//  simulation.fix(d);
+}
+function dragged(d) {
+  d.fx = d3.event.x
+  d.fy = d3.event.y
+//  simulation.fix(d, d3.event.x, d3.event.y);
+}
+function dragended(d) {
+  d.fx = d3.event.x
+  d.fy = d3.event.y
+  if (!d3.event.active) simulation.alphaTarget(0);
+  //simulation.unfix(d);
+}
+
+</script>
