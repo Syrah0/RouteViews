@@ -1,4 +1,5 @@
 import re
+import sys
 from ipaddress import ip_network
 
 
@@ -38,7 +39,7 @@ def _get_row_values(row, regex):
 
 
 def aggregate_routes(file):
-	"""Aggregate BGP routes in file and print them to stdin."""
+	"""Aggregate BGP routes in file and print them to stdout."""
 	# Skip first 5 lines
 	for _ in range(5):
 		file.readline()
@@ -49,28 +50,41 @@ def aggregate_routes(file):
 
 	net = 1  # Network index in a row array
 	path = 6  # Path index
-	file.readline()  # Skip default route in first row
+	first_row = file.readline()  # Skip default route in first row
 	second_row = file.readline()
-	if second_row == "\n": return
+	if second_row == "\n": return  # There are no more rows
 	second_row =_get_row_values(second_row, regex)
 	second_row[net] = ip_network(second_row[net])
 	# Rows to be displayed
 	row_list = [second_row]
 
+	# For each row of the table find if it can be aggregated and
+	# aggregate it, otherwise append it to row_list.
 	for line in file:
-		if line=="\n": break
+		if line=="\n": break  # There are no more rows
 		row = _get_row_values(line, regex)
 		row[net] = ip_network(row[net])
-		for r in row_list:
+		for r in row_list:  # Find if it can be aggregated
+			aggregated = False
 			if r[net].overlaps(row[net]) and r[path] == row[path]:
-				break
+				if r[net].compare_networks(row[net]) == 1:
+					r[net] = row[net]
+				break  # aggregated = True, pass to next row
 			elif r[path] == row[path]:
+				# TODO: Review this part
+				# Try to aggregate them to a less specific prefix.
 				supernet = r[net].supernet()
 				if supernet.overlaps(row[net]):
 					r[net] = supernet
+					aggregated = True
 					break
-			elif r == row_list[-1]:
+
+			if r == row_list[-1] and not aggregated:
 				row_list.append(row)
+
+	# Print default route.
+	first_row = _get_row_values(first_row, regex)
+	print("{0:18} {1}".format(first_row[net], first_row[path]))
 
 	# Show aggregated routes.
 	for row in row_list:
