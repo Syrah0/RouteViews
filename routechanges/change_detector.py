@@ -65,21 +65,19 @@ def aggregate_routes(file):
 		row = _get_row_values(line, regex)
 		row[net] = ip_network(row[net])
 		for r in row_list:  # Find if it can be aggregated
-			aggregated = False
 			if r[net].overlaps(row[net]) and r[path] == row[path]:
+				# Keep the less specific one.
 				if r[net].compare_networks(row[net]) == 1:
 					r[net] = row[net]
-				break  # aggregated = True, pass to next row
+				break
 			elif r[path] == row[path]:
-				# TODO: Review this part
 				# Try to aggregate them to a less specific prefix.
 				supernet = r[net].supernet()
 				if supernet.overlaps(row[net]):
 					r[net] = supernet
-					aggregated = True
 					break
-
-			if r == row_list[-1] and not aggregated:
+			# The prefix can't be aggregated.
+			if r == row_list[-1]:
 				row_list.append(row)
 
 	# Print default route.

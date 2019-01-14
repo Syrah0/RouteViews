@@ -6,7 +6,7 @@ from routechanges.change_detector import (_calculate_regexp,
 	_get_row_values, aggregate_routes)
 from ipaddress import ip_network
 
-
+# TODO: add explanation of how to run tests in README.md
 class TestChangeDetector(unittest.TestCase):
 
 	def setUp(self):
@@ -15,6 +15,10 @@ class TestChangeDetector(unittest.TestCase):
 		sys.stdout = TemporaryFile(mode="w+t")
 
 	def test_aggregate_routes(self):
+		"""Test if rechability is the same for the original BGP routes
+		file and the output of aggregate_routes() when run over that
+		file.
+		"""
 		# Run function over file.
 		file = self.file
 		aggregate_routes(file)
