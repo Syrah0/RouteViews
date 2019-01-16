@@ -1,5 +1,4 @@
 import re
-import sys
 from ipaddress import ip_network
 
 
@@ -50,42 +49,56 @@ def aggregate_routes(file):
 
     net = 1  # Network index in a row array
     path = 6  # Path index
-    first_row = file.readline()  # Skip default route in first row
-    second_row = file.readline()
-    if second_row == "\n":
-        return  # There are no more rows
-    second_row = _get_row_values(second_row, regex)
-    second_row[net] = ip_network(second_row[net])
-    # Rows to be displayed
-    row_list = [second_row]
+    row_list = {}  # Rows to be displayed
+
+    first_row = file.readline()
+    first_row = _get_row_values(first_row, regex)
+
+    default_present = False
+    if first_row[1] == "0.0.0.0":
+        # Skip default route in first row
+        default_present = True
+        second_row = file.readline()
+        second_row = _get_row_values(second_row, regex)
+        second_row[net] = ip_network(second_row[net])
+        row_list[second_row[path]] = {second_row[net]} 
+    else:
+        row_list[first_row[path]] = {ip_network(first_row[net])}
 
     # For each row of the table find if it can be aggregated and
-    # aggregate it, otherwise append it to row_list.
+    # aggregate it, otherwise append the network to the corresponding
+    # list for its path in row_list.
     for line in file:
         if line == "\n":
             break  # There are no more rows
         row = _get_row_values(line, regex)
         row[net] = ip_network(row[net])
-        for r in row_list:  # Find if it can be aggregated
-            if r[path] == row[path]:
-                if r[net].overlaps(row[net]):
-                    # Keep the less specific one.
-                    if r[net].compare_networks(row[net]) == 1:
-                        r[net] = row[net]
-                    break
-                # Try to aggregate them to a less specific prefix.
-                supernet = r[net].supernet()
-                if supernet.overlaps(row[net]):
-                    r[net] = supernet
-                    break
-            # The prefix can't be aggregated.
-            if r == row_list[-1]:
-                row_list.append(row)
+        current_path = row[path]
+        aggregated = False
+        if current_path in row_list:
+            supernet = row[net].supernet()
+            n1 , n2 = supernet.subnets()
+            if n1 == row[net]:
+                sibling_net = n2
+            else:
+                sibling_net = n1
+            if supernet in row_list[current_path]:
+                continue
+            elif sibling_net in row_list[current_path]:
+                row_list[current_path].add(supernet)
+                row_list[current_path].discard(sibling_net)
+                continue
+            else:
+                row_list[current_path].add(row[net])
+        else:
+            row_list[current_path] = {row[net]}
+
 
     # Print default route.
-    first_row = _get_row_values(first_row, regex)
-    print("{0:18} {1}".format(first_row[net], first_row[path]))
+    if default_present:
+        print("{0:18} {1}".format(first_row[net], first_row[path]))
 
     # Show aggregated routes.
-    for row in row_list:
-        print("{0:18} {1}".format(str(row[net]), row[path]))
+    for path, net_set in row_list.items():
+        for network in net_set:
+            print("{0:18} {1}".format(str(network), path))
