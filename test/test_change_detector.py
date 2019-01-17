@@ -15,9 +15,9 @@ class TestChangeDetector(unittest.TestCase):
         sys.stdout = TemporaryFile(mode="w+t")
 
     def test_aggregate_routes(self):
-        """Test if rechability is the same for the original BGP routes
-        file and the output of aggregate_routes() when run over that
-        file.
+        """Test if there is a path and covering prefix for each of the
+        rows of the original BGP routing table file in the output of
+        aggregate_routes() when run over that file.
         """
         # Run function over file.
         file = self.file
@@ -32,9 +32,27 @@ class TestChangeDetector(unittest.TestCase):
         net = 0  # Network index in a row array
         path = 1  # Path index
 
-        line_count = 0
+        # Extract rows from generated output.
+        path_dict = {}  
+        # path_dict will be a dict with paths as keys and lists of networks
+        # as values.
+        for output in self.aux_file:
+            output = output[0:-1]  # Remove newline character
+            # Get network and path
+            o_row = re.findall("(.{19})(.+)", output)
+            o_row = [x.strip() for x in o_row[0]]
+            current_net = IPv4Network(o_row[net])
+            current_path = o_row[path]
+            if current_path in path_dict:
+                path_dict[current_path].append(current_net)
+            else:
+                path_dict[current_path] = [current_net]
+
+        # Test if there is a path and covering prefix in the output for
+        # each row in the original file
+        row_count = 0
         for row in get_rows(file):
-            line_count += 1
+            row_count += 1
             row[net] = IPv4Network(row[net])
 
             # Suppose there is no covering prefix for this network and
@@ -42,23 +60,15 @@ class TestChangeDetector(unittest.TestCase):
             found = False
 
             # Look for covering prefix.
-            for output in self.aux_file:
-                output = output[0:-1]  # Remove newline character
-                # Get network and path
-                o_row = re.findall("(.{19})(.+)", output)
-                o_row = [x.strip() for x in o_row[0]]
-                o_row[0] = IPv4Network(o_row[0])
-
-                # If there is a covering prefix set found = True.
-                if (o_row[0].compare_networks(row[net]) < 1 and
-                    o_row[0].overlaps(row[net]) and
-                        o_row[1] == row[path]):
-                    found = True
-                    break
-
+            if row[path] in path_dict:
+                for network in path_dict[row[path]]:
+                    # If there is a covering prefix set found = True.
+                    if (network.compare_networks(row[net]) < 1 and
+                            network.overlaps(row[net])):
+                        found = True
+                        break
             self.assertTrue(found, "No path and covering prefix for network "
-                            "{0}:\n {1}".format(line_count, row[net]))
-            self.aux_file.seek(0)  # Rewind file for next iteration
+                            "in row {0}:\n {1}".format(row_count, row[net]))
 
     def tearDown(self):
         self.file.close()
