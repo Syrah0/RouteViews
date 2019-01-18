@@ -1,0 +1,16 @@
+BGP table version is 0, local router ID is 145.56.36.20
+Status codes: s suppressed, d damped, h history, * valid, > best, i - internal,
+              r RIB-failure, S Stale, R Removed
+Origin codes: i - IGP, e - EGP, ? - incomplete
+
+   Network          Next Hop            Metric LocPrf Weight Path
+*  0.0.0.0          196.131.12.25                          0 27486 3549 i
+*  1.4.128.0/24     196.131.12.25                          0 27486 12926 13335 i
+*> 41.230.169.0/24  196.131.12.25                          0 27486 3547 i
+*> 43.230.170.0/25  196.131.12.25                          0 27486 3543 i
+*> 57.230.170.128/25
+                    196.131.12.25                          0 27486 3641 i
+*> 86.230.171.0/24  196.131.12.25                          0 27486 3949 i
+*> 210.14.24.0      196.131.12.25                          0 27486 6862 7473 3758 55415 i
+
+Total number of prefixes 7

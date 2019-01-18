@@ -52,7 +52,7 @@ def get_rows(file):
         if len(line) < first_three:  # The line is not complete
             # Remove first column and newline character to only get
             # the network.
-            net = line[column_lengths[0]:-1]
+            net = line[column_lengths[0]:len(line)]
             next_line = file.readline()
             # Remove every row before the path and remove newline
             # character.

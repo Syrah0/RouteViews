@@ -128,3 +128,4 @@ dmypy.json
 
 # Ignore testing txt files
 test/*.txt
+!test/get_rows_test_file.txt

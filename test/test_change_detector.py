@@ -7,10 +7,37 @@ from routechanges.change_detector import (get_rows,
 from ipaddress import IPv4Network
 
 
-class TestChangeDetector(unittest.TestCase):
+class TestGetRows(unittest.TestCase):
+
+    def setUp(self):
+        self.file = open("test/get_rows_test_file.txt")
+        self.spected_output = [
+            ["0.0.0.0", "27486 3549"],
+            ["1.4.128.0/24", "27486 12926 13335"],
+            ["41.230.169.0/24", "27486 3547"],
+            ["43.230.170.0/25", "27486 3543"],
+            ["57.230.170.128/25", "27486 3641"],
+            ["86.230.171.0/24", "27486 3949"],
+            ["210.14.24.0", "27486 6862 7473 3758 55415"],
+        ]
+
+    def test_get_rows(self):
+        """Test if every parsed row contains the correct information
+        from the file.
+        """
+        for row, spected_row in zip(get_rows(self.file), self.spected_output):
+            self.assertEqual(row, spected_row)
+
+    def tearDown(self):
+        self.file.close()
+
+
+class TestAggregateRoutes(unittest.TestCase):
 
     def setUp(self):
         self.file = open("test/aggregate_routes_test_file.txt")
+        # These two files will be later interchanged so aux_file
+        # contains the output of aggregate_routes().
         self.aux_file = sys.stdout
         sys.stdout = TemporaryFile(mode="w+t")
 
@@ -33,7 +60,7 @@ class TestChangeDetector(unittest.TestCase):
         path = 1  # Path index
 
         # Extract rows from generated output.
-        path_dict = {}  
+        path_dict = {}
         # path_dict will be a dict with paths as keys and lists of networks
         # as values.
         for output in self.aux_file:
@@ -71,5 +98,6 @@ class TestChangeDetector(unittest.TestCase):
                             "in row {0}:\n {1}".format(row_count, row[net]))
 
     def tearDown(self):
+        # Close BGP routes file and the output file.
         self.file.close()
         self.aux_file.close()
