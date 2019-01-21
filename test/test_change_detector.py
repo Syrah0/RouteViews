@@ -45,21 +45,24 @@ class TestAggregateRoutes(unittest.TestCase):
         self.expected_output_file = open(
             "test/aggregate_routes_expected_output.txt")
 
-    def test_aggregate_routes_coverage(self):
-        """Test if there is a path and covering prefix for each of the
-        rows of the original BGP routing table file in the output of
-        aggregate_routes() when run over that file.
-        """
+    def _execute_function(self):
+        """Runs function aggregate_routes()."""
         # Run function over file.
-        file = self.file
-        aggregate_routes(file)
+        aggregate_routes(self.file)
 
         # Disconnect aux_file from stdout.
         sys.stdout, self.aux_file = self.aux_file, sys.stdout
 
         # Now the output of aggregate_routes() is in aux_file.
         self.aux_file.seek(0)
-        file.seek(0)  # Rewind file
+
+    def test_aggregate_routes_coverage(self):
+        """Test if there is a path and covering prefix for each of the
+        rows of the original BGP routing table file in the output of
+        aggregate_routes() when run over that file.
+        """
+        self._execute_function()
+        self.file.seek(0)  # Rewind file
         net = 0  # Network index in a row array
         path = 1  # Path index
 
@@ -82,7 +85,7 @@ class TestAggregateRoutes(unittest.TestCase):
         # Test if there is a path and covering prefix in the output for
         # each row in the original file
         row_count = 0
-        for row in get_rows(file):
+        for row in get_rows(self.file):
             row_count += 1
             row[net] = IPv4Network(row[net])
 
@@ -102,17 +105,10 @@ class TestAggregateRoutes(unittest.TestCase):
                             "in row {0}:\n {1}".format(row_count, row[net]))
 
     def test_aggregate_routes_output(self):
-        # Run function over file.
-        file = self.file
-        aggregate_routes(file)
-
-        # Disconnect aux_file from stdout.
-        sys.stdout, self.aux_file = self.aux_file, sys.stdout
-
-        # Now the output of aggregate_routes() is in aux_file.
-        self.aux_file.seek(0)
-        file.seek(0)  # Rewind file
-
+        """Tests whether the output is equal to the contents of
+        aggregate_routes_expected_output.txt.
+        """
+        self._execute_function()
         line_count = 0
         for real, expected in zip(self.aux_file, self.expected_output_file):
             line_count += 1
