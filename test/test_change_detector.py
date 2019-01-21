@@ -41,7 +41,11 @@ class TestAggregateRoutes(unittest.TestCase):
         self.aux_file = sys.stdout
         sys.stdout = TemporaryFile(mode="w+t")
 
-    def test_aggregate_routes(self):
+        # Used only in test_aggregate_routes_output().
+        self.expected_output_file = open(
+            "test/aggregate_routes_expected_output.txt")
+
+    def test_aggregate_routes_coverage(self):
         """Test if there is a path and covering prefix for each of the
         rows of the original BGP routing table file in the output of
         aggregate_routes() when run over that file.
@@ -97,7 +101,27 @@ class TestAggregateRoutes(unittest.TestCase):
             self.assertTrue(found, "No path and covering prefix for network "
                             "in row {0}:\n {1}".format(row_count, row[net]))
 
+    def test_aggregate_routes_output(self):
+        # Run function over file.
+        file = self.file
+        aggregate_routes(file)
+
+        # Disconnect aux_file from stdout.
+        sys.stdout, self.aux_file = self.aux_file, sys.stdout
+
+        # Now the output of aggregate_routes() is in aux_file.
+        self.aux_file.seek(0)
+        file.seek(0)  # Rewind file
+
+        line_count = 0
+        for real, expected in zip(self.aux_file, self.expected_output_file):
+            line_count += 1
+            self.assertEqual(
+                real, expected, "Line number {0} is not "
+                "equal".format(line_count))
+
     def tearDown(self):
-        # Close BGP routes file and the output file.
+        # Close BGP routes file, auxiliary and expected output file.
         self.file.close()
         self.aux_file.close()
+        self.expected_output_file.close()

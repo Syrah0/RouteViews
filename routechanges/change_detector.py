@@ -82,6 +82,8 @@ def aggregate_routes(file):
     first_row = next(row_iterator)
     if first_row[net] == "0.0.0.0":
         # Skip default route in first row
+        # Add mask to be coherent with ipaddress library.
+        first_row[net] = "0.0.0.0/32"
         default_present = True
         second_row = next(row_iterator)
         second_row[net] = IPv4Network(second_row[net], False)

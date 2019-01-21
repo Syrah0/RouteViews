@@ -126,6 +126,8 @@ dmypy.json
 
 # =============================== Custom ==================================== #
 
-# Ignore testing txt files
+# Ignore testing .txt files
 test/*.txt
 !test/get_rows_test_file.txt
+!test/aggregate_routes_test_file.txt
+!test/aggregate_routes_expected_output.txt
