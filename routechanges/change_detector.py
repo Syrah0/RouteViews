@@ -119,7 +119,14 @@ def aggregate_routes(file):
     if default_present:
         print("{0:18} {1}".format(first_row[net], first_row[path]))
 
-    # Show aggregated routes.
+    # Prepare to output rows ordered by network.
+    final_list = []
     for path, net_set in row_list.items():
         for network in net_set:
-            print("{0:18} {1}".format(str(network), path))
+            final_list.append((network, path))
+
+    final_list.sort(key=lambda pair: pair[0])
+
+    # Show aggregated routes.
+    for network, path in final_list:
+        print("{0:18} {1}".format(str(network), path))

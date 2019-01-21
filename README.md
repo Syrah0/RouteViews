@@ -3,6 +3,9 @@
 The version of python used for the `routechanges` and `test` modules is python
 3.6.5.
 
+Every library used in the `routechanges` module comes from the python standard
+library.
+
 ## Testing
 
 Testing is done using the `unittest` module from the python standard library.
