@@ -103,22 +103,23 @@ def aggregate_routes(file):
         if current_path in row_list:
             while True:
                 supernet = current_net.supernet()
-                n1, n2 = supernet.subnets()
-                if n1 == current_net:
-                    sibling_net = n2
-                else:
-                    sibling_net = n1
-                if supernet in row_list[current_path]:
-                    # There is no need to add this net
-                    break
-                elif sibling_net in row_list[current_path]:
-                    row_list[current_path].discard(sibling_net)
-                    # Continue trying to aggregate the supernet
-                    current_net = supernet
-                else:
-                    # The net couldn't be aggregated
-                    row_list[current_path].add(current_net)
-                    break
+                if supernet != current_net:
+                    n1, n2 = supernet.subnets()
+                    if n1 == current_net:
+                        sibling_net = n2
+                    else:
+                        sibling_net = n1
+                    if supernet in row_list[current_path]:
+                        # There is no need to add this net.
+                        break
+                    elif sibling_net in row_list[current_path]:
+                        row_list[current_path].discard(sibling_net)
+                        # Continue trying to aggregate the supernet.
+                        current_net = supernet
+                        continue
+                # The net couldn't be aggregated.
+                row_list[current_path].add(current_net)
+                break
         else:
             row_list[current_path] = {current_net}
 

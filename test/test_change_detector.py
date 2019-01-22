@@ -11,7 +11,7 @@ class TestGetRows(unittest.TestCase):
 
     def setUp(self):
         self.file = open("test/get_rows_test_file.txt")
-        self.spected_output = [
+        self.expected_output = [
             ["0.0.0.0", "27486 3549"],
             ["1.4.128.0/24", "27486 12926 13335"],
             ["41.230.169.0/24", ""],
@@ -25,7 +25,7 @@ class TestGetRows(unittest.TestCase):
         """Test if every parsed row contains the correct information
         from the file.
         """
-        for row, spected_row in zip(get_rows(self.file), self.spected_output):
+        for row, spected_row in zip(get_rows(self.file), self.expected_output):
             self.assertEqual(row, spected_row)
 
     def tearDown(self):
