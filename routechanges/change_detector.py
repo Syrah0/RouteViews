@@ -3,8 +3,10 @@ from ipaddress import IPv4Network
 
 
 def _calculate_regexp(header_line):
-    """Returns a regular expression that helps to get each column in a
-    row, and the width for each column except the last one in a list.
+    """Returns a regular expression and a list of integers. The regular
+    expression will help to parse the columns for each row of the table,
+    and the list will contain the widths of the columns except for the
+    last one which is the path column that has undefined length.
     """
     header = header_line[0:-1]  # Remove newline character
     header = header.replace("Next Hop", "Next_Hop")
@@ -35,7 +37,7 @@ def get_rows(file):
     each itaration is a list with the first element as the string
     for the network and the second element the path of AS's.
     """
-    # Skip first 5 lines.
+    # Skip first 5 lines of the file header.
     for _ in range(5):
         file.readline()
 
@@ -81,7 +83,7 @@ def aggregate_routes(file):
     default_present = False
     first_row = next(row_iterator)
     if first_row[net] == "0.0.0.0":
-        # Skip default route in first row
+        # Skip default route in first row.
         # Add mask to be coherent with ipaddress library.
         first_row[net] = "0.0.0.0/32"
         default_present = True
@@ -97,23 +99,28 @@ def aggregate_routes(file):
     for row in row_iterator:
         row[net] = IPv4Network(row[net], False)
         current_path = row[path]
+        current_net = row[net]
         if current_path in row_list:
-            supernet = row[net].supernet()
-            n1, n2 = supernet.subnets()
-            if n1 == row[net]:
-                sibling_net = n2
-            else:
-                sibling_net = n1
-            if supernet in row_list[current_path]:
-                continue
-            elif sibling_net in row_list[current_path]:
-                row_list[current_path].add(supernet)
-                row_list[current_path].discard(sibling_net)
-                continue
-            else:
-                row_list[current_path].add(row[net])
+            while True:
+                supernet = current_net.supernet()
+                n1, n2 = supernet.subnets()
+                if n1 == current_net:
+                    sibling_net = n2
+                else:
+                    sibling_net = n1
+                if supernet in row_list[current_path]:
+                    # There is no need to add this net
+                    break
+                elif sibling_net in row_list[current_path]:
+                    row_list[current_path].discard(sibling_net)
+                    # Continue trying to aggregate the supernet
+                    current_net = supernet
+                else:
+                    # The net couldn't be aggregated
+                    row_list[current_path].add(current_net)
+                    break
         else:
-            row_list[current_path] = {row[net]}
+            row_list[current_path] = {current_net}
 
     # Print default route.
     if default_present:
