@@ -7,6 +7,16 @@ from routechanges.change_detector import (get_rows,
 from ipaddress import IPv4Network
 
 
+def compare_files(file1, file2, test_case):
+    """Compares the lines of two files for a test_case object."""
+    line_count = 0
+    for line1, line2 in zip(file1, file2):
+        line_count += 1
+        test_case.assertEqual(
+            line1, line2, "Line number {0} is not "
+            "equal".format(line_count))
+
+
 class TestGetRows(unittest.TestCase):
 
     def setUp(self):
@@ -103,15 +113,32 @@ class TestAggregateRoutes(unittest.TestCase):
         aggregate_routes_expected_output.txt.
         """
         self._execute_function()
-        line_count = 0
-        for real, expected in zip(self.output_file, self.expected_output_file):
-            line_count += 1
-            self.assertEqual(
-                real, expected, "Line number {0} is not "
-                "equal".format(line_count))
+        compare_files(self.output_file, self.expected_output_file, self)
 
     def tearDown(self):
         # Close BGP routes file, auxiliary and expected output file.
         self.file.close()
         self.output_file.close()
         self.expected_output_file.close()
+
+
+class TestChangeDetection(unittest.TestCase):
+
+    def setUp(self):
+        self.file1 = open("test/change_detection_test_file_1.txt")
+        self.file2 = open("test/change_detection_test_file_2.txt")
+        self.output_file = TemporaryFile("w+t")
+        self.expected_output = open(
+            "test/change_detection_expected_output.txt")
+
+    def test_change_detection(self):
+        # TODO: Make detect_changes() function.
+        detect_changes(file1, file2, output_file)
+        output_file.seek(0)
+        compare_files(self.output_file, self.expected_output_file, self)
+
+    def tearDown(self):
+        self.file1.close()
+        self.file2.close()
+        self.output_file.close()
+        self.expected_output.close()
