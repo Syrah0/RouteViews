@@ -1,3 +1,4 @@
+import sys
 import re
 from ipaddress import IPv4Network
 
@@ -34,8 +35,8 @@ def _calculate_regexp(header_line):
 def get_rows(file):
     """ Returns an iterator over the rows of the file containing only
     the information about network and path. The element returned for
-    each itaration is a list with the first element as the string
-    for the network and the second element the path of AS's.
+    each itaration is a list with the first element as the string for
+    the network and the second element the path of AS's.
     """
     # Skip first 5 lines of the file header.
     for _ in range(5):
@@ -72,16 +73,18 @@ def get_rows(file):
         yield row
 
 
-def aggregate_routes(file):
+def aggregate_routes(file, output_file=None):
     """Aggregate BGP routes in file and print them to stdout.
-    This function does not modify the given file.
-    Each row of the output is formatted with the first column
-    having a width of 18 characters and containing the network
-    left aligned, then comes a space and the second column that
-    contains the path for that network. The second column has
-    variable width depending on the path and ends with a newline
-    character.
+    This function does not modify the given file. If an output file is
+    not given sys.stdout will be used.
+    Each row of the output is formatted with the first column having a 
+    width of 18 characters and containing the network left aligned, then
+    comes a space and the second column that contains the path for that
+    network. The second column has variable width depending on the path
+    and ends with a newline character.
     """
+    if output_file == None:
+        output_file = sys.stdout
 
     net = 0  # Network index in a row array
     path = 1  # Path index
@@ -133,7 +136,8 @@ def aggregate_routes(file):
 
     # Print default route.
     if default_present:
-        print("{0:18} {1}".format(first_row[net], first_row[path]))
+        print("{0:18} {1}".format(first_row[net], first_row[path]),
+              file=output_file)
 
     # Prepare to output rows ordered by network.
     final_list = []
@@ -145,4 +149,4 @@ def aggregate_routes(file):
 
     # Show aggregated routes.
     for network, path in final_list:
-        print("{0:18} {1}".format(str(network), path))
+        print("{0:18} {1}".format(str(network), path), file=output_file)

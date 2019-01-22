@@ -36,11 +36,8 @@ class TestAggregateRoutes(unittest.TestCase):
 
     def setUp(self):
         self.file = open("test/aggregate_routes_test_file.txt")
-        # These two files will be later interchanged so aux_file
-        # contains the output of aggregate_routes().
-        self.aux_file = sys.stdout
-        sys.stdout = TemporaryFile(mode="w+t")
-
+        # Will contain the output of aggregate_routes().
+        self.output_file = TemporaryFile(mode="w+t")
         # Used only in test_aggregate_routes_output().
         self.expected_output_file = open(
             "test/aggregate_routes_expected_output.txt")
@@ -48,13 +45,10 @@ class TestAggregateRoutes(unittest.TestCase):
     def _execute_function(self):
         """Runs function aggregate_routes()."""
         # Run function over file.
-        aggregate_routes(self.file)
+        aggregate_routes(self.file, self.output_file)
 
-        # Disconnect aux_file from stdout.
-        sys.stdout, self.aux_file = self.aux_file, sys.stdout
-
-        # Now the output of aggregate_routes() is in aux_file.
-        self.aux_file.seek(0)
+        # Now the output of aggregate_routes() is in output_file.
+        self.output_file.seek(0)
 
     def test_aggregate_routes_coverage(self):
         """Test if there is a path and covering prefix for each of the
@@ -70,7 +64,7 @@ class TestAggregateRoutes(unittest.TestCase):
         path_dict = {}
         # path_dict will be a dict with paths as keys and lists of networks
         # as values.
-        for output in self.aux_file:
+        for output in self.output_file:
             output = output[0:-1]  # Remove newline character
             # Get network and path
             o_row = re.findall("(.{19})(.+)", output)
@@ -110,7 +104,7 @@ class TestAggregateRoutes(unittest.TestCase):
         """
         self._execute_function()
         line_count = 0
-        for real, expected in zip(self.aux_file, self.expected_output_file):
+        for real, expected in zip(self.output_file, self.expected_output_file):
             line_count += 1
             self.assertEqual(
                 real, expected, "Line number {0} is not "
@@ -119,5 +113,5 @@ class TestAggregateRoutes(unittest.TestCase):
     def tearDown(self):
         # Close BGP routes file, auxiliary and expected output file.
         self.file.close()
-        self.aux_file.close()
+        self.output_file.close()
         self.expected_output_file.close()
