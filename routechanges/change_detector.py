@@ -73,7 +73,15 @@ def get_rows(file):
 
 
 def aggregate_routes(file):
-    """Aggregate BGP routes in file and print them to stdout."""
+    """Aggregate BGP routes in file and print them to stdout.
+    This function does not modify the given file.
+    Each row of the output is formatted with the first column
+    having a width of 18 characters and containing the network
+    left aligned, then comes a space and the second column that
+    contains the path for that network. The second column has
+    variable width depending on the path and ends with a newline
+    character.
+    """
 
     net = 0  # Network index in a row array
     path = 1  # Path index
