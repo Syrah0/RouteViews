@@ -131,3 +131,6 @@ test/*.txt
 !test/get_rows_test_file.txt
 !test/aggregate_routes_test_file.txt
 !test/aggregate_routes_expected_output.txt
+!test/change_detection_test_file_t1.txt
+!test/change_detection_test_file_t2.txt
+!test/change_detection_expected_output.txt
