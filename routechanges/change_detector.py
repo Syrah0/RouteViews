@@ -74,7 +74,7 @@ def get_rows(file):
 
 
 def aggregate_routes(file, output_file=None):
-    """Aggregate BGP routes in file and print them to stdout.
+    """Aggregate BGP routes in file and print them to output_file.
     This function does not modify the given file. If an output file is
     not given sys.stdout will be used.
     Each row of the output is formatted with the first column having a 
@@ -115,19 +115,23 @@ def aggregate_routes(file, output_file=None):
             while True:
                 supernet = current_net.supernet()
                 if supernet != current_net:
+                    if supernet in row_list[current_path]:
+                        # There is no need to add this net.
+                        break
+
+                    # Get sibling net.
                     n1, n2 = supernet.subnets()
                     if n1 == current_net:
                         sibling_net = n2
                     else:
                         sibling_net = n1
-                    if supernet in row_list[current_path]:
-                        # There is no need to add this net.
-                        break
-                    elif sibling_net in row_list[current_path]:
+
+                    if sibling_net in row_list[current_path]:
                         row_list[current_path].discard(sibling_net)
                         # Continue trying to aggregate the supernet.
                         current_net = supernet
                         continue
+
                 # The net couldn't be aggregated.
                 row_list[current_path].add(current_net)
                 break
