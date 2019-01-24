@@ -55,7 +55,7 @@ class TestAggregateRoutes(unittest.TestCase):
     def _execute_function(self):
         """Runs function aggregate_routes()."""
         # Run function over file.
-        aggregate_routes(self.file, self.output_file)
+        aggregate_routes(self.file, output_file=self.output_file)
 
         # Now the output of aggregate_routes() is in output_file.
         self.output_file.seek(0)

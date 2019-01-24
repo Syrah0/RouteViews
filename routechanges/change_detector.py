@@ -73,15 +73,22 @@ def get_rows(file):
         yield row
 
 
-def aggregate_routes(file, output_file=None):
-    """Aggregate BGP routes in file and print them to output_file.
-    This function does not modify the given file. If an output file is
-    not given sys.stdout will be used.
-    Each row of the output is formatted with the first column having a 
-    width of 18 characters and containing the network left aligned, then
-    comes a space and the second column that contains the path for that
-    network. The second column has variable width depending on the path
-    and ends with a newline character.
+def aggregate_routes(file, return_list=False, output_file=None):
+    """Aggregate BGP routes in file.
+    The output of the function is ordered by network from lowest to
+    highest ip and mask.
+    If return_list is set to True the function will return a list of
+    2-tuples where for each tuple the first element will be an
+    IPv4Network object and the second element will be the string of the
+    path for that network.
+    If return_list is False the output will be printed to output_file
+    where each row of the output is formatted with the first column
+    having a width of 18 characters and containing the network left
+    aligned, then comes a space and the second column that contains the
+    path for that network. The second column has variable width
+    depending on the path and ends with a newline character. If
+    output_file is None sys.stdout will be used.
+    This function does not modify the given file. 
     """
     if output_file == None:
         output_file = sys.stdout
@@ -138,19 +145,74 @@ def aggregate_routes(file, output_file=None):
         else:
             row_list[current_path] = {current_net}
 
-    # Print default route.
+    final_list = []
+
     if default_present:
-        print("{0:18} {1}".format(first_row[net], first_row[path]),
-              file=output_file)
+        if return_list:
+            final_list = [(IPv4Network(first_row[net]), first_row[path])]
+        else:
+            # Print default route.
+            print("{0:18} {1}".format(first_row[net], first_row[path]),
+                  file=output_file)
 
     # Prepare to output rows ordered by network.
-    final_list = []
     for path, net_set in row_list.items():
         for network in net_set:
             final_list.append((network, path))
 
     final_list.sort(key=lambda pair: pair[0])
 
+    if return_list:
+        return final_list
+
     # Show aggregated routes.
     for network, path in final_list:
         print("{0:18} {1}".format(str(network), path), file=output_file)
+
+
+def detect_changes(file_t1, file_t2, output_file=None):
+    """Find changes in routes of file_t2 repect to file_t1 and print
+    them to output_file, if output_file is None then sys.stdout will
+    be used.
+    """
+    if output_file is None:
+        output_file = sys.stdout
+
+    routes_t1 = aggregate_routes(file_t1, return_list=True)
+    routes_t2 = aggregate_routes(file_t2, return_list=True)
+
+    covered_t1 = [False for route in routes_t1]
+
+    # Net and path index for a tuple.
+    net = 0
+    path = 1
+
+    for i, row_t2 in enumerate(routes_t2):
+        # Find the more specific prefix in routes_t1 that contains
+        # row_t2[net].
+        specific_t1 = None
+        specific_index = None
+        for j, row_t1 in enumerate(routes_t1):
+            if (row_t1[net].overlaps(row_t2[net]) and
+                    row_t1[net].prefixlen <= row_t2[net].prefixlen):
+                if (specific_t1 == None or
+                        row_t1[net].prefixlen > specific_t1[net])
+                    specific_t1 = row_t1
+                    specific_index = j
+                    continue
+
+        if specific_t1 == None:
+            # row_t2[net] is new.
+            print(str(row_t2[net]), file=output_file)
+            print("DEF", file=output_file)
+            print(row_t2[path], file=output_file)
+            continue
+
+        if (specific_t1[net] == row_t2[net] and
+                specific_t1[path] != row_t2[path]):
+            # The net changed its path
+            covered_t1[specific_index] = True
+            print(str(row_t2[net]), file=output_file)
+            print(specific_t1[path], file=output_file)
+            print(row_t2[path], file=output_file)
+            continue
