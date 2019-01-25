@@ -119,11 +119,13 @@ def aggregate_routes(file, return_list=False, output_file=None):
         current_path = row[path]
         current_net = row[net]
         if current_path in row_list:
+            # Try to aggregate the net.
             while True:
                 supernet = current_net.supernet()
                 if supernet != current_net:
                     if supernet in row_list[current_path]:
-                        # There is no need to add this net.
+                        # There is no need to add this net, because
+                        # its supernet has the same path.
                         break
 
                     # Get sibling net.
@@ -135,6 +137,8 @@ def aggregate_routes(file, return_list=False, output_file=None):
 
                     if sibling_net in row_list[current_path]:
                         row_list[current_path].discard(sibling_net)
+                        # As the two nets have the same path we only
+                        # need the supernet.
                         # Continue trying to aggregate the supernet.
                         current_net = supernet
                         continue
@@ -170,6 +174,27 @@ def aggregate_routes(file, return_list=False, output_file=None):
         print("{0:18} {1}".format(str(network), path), file=output_file)
 
 
+def _specific_container(search_list, target_net):
+    """Returns the tuple and index for the most specific network in
+    search_list that contains target_net.
+    """
+    # Net and path index for a tuple.
+    net = 0
+    path = 1
+    specific_tuple = None
+    specific_index = None
+    for j, tup in enumerate(search_list):
+        # If tup[net] contains target_net and is more specific than
+        # specific_tuple[net] then set specific_tuple = tup.
+        if (tup[net].overlaps(target_net) and
+                tup[net].prefixlen <= target_net.prefixlen and
+                (specific_tuple == None or
+                 tup[net].prefixlen > specific_tuple[net])):
+            specific_tuple = tup
+            specific_index = j
+    return specific_tuple, specific_index
+
+
 def detect_changes(file_t1, file_t2, output_file=None):
     """Find changes in routes of file_t2 repect to file_t1 and print
     them to output_file, if output_file is None then sys.stdout will
@@ -180,39 +205,76 @@ def detect_changes(file_t1, file_t2, output_file=None):
 
     routes_t1 = aggregate_routes(file_t1, return_list=True)
     routes_t2 = aggregate_routes(file_t2, return_list=True)
-
     covered_t1 = [False for route in routes_t1]
 
     # Net and path index for a tuple.
     net = 0
     path = 1
 
-    for i, row_t2 in enumerate(routes_t2):
+    # output will contain 3-tuples that have the network, the old path
+    # and the new path.
+    output = []
+
+    # Look from routes_t2 to routes_t1.
+    for row_t2 in routes_t2:
         # Find the more specific prefix in routes_t1 that contains
         # row_t2[net].
-        specific_t1 = None
-        specific_index = None
-        for j, row_t1 in enumerate(routes_t1):
-            if (row_t1[net].overlaps(row_t2[net]) and
-                    row_t1[net].prefixlen <= row_t2[net].prefixlen):
-                if (specific_t1 == None or
-                        row_t1[net].prefixlen > specific_t1[net])
-                    specific_t1 = row_t1
-                    specific_index = j
-                    continue
-
+        specific_t1, specific_index = _specific_container(routes_t1,
+                                                          row_t2[net])
         if specific_t1 == None:
             # row_t2[net] is new.
-            print(str(row_t2[net]), file=output_file)
-            print("DEF", file=output_file)
-            print(row_t2[path], file=output_file)
+            output.append((row_t2[net], "DEF", row_t2[path]))
             continue
 
-        if (specific_t1[net] == row_t2[net] and
-                specific_t1[path] != row_t2[path]):
+        if specific_t1[path] != row_t2[path]:
             # The net changed its path
-            covered_t1[specific_index] = True
-            print(str(row_t2[net]), file=output_file)
-            print(specific_t1[path], file=output_file)
-            print(row_t2[path], file=output_file)
+            if specific_t1[net] == row_t2[net]:
+                # We won't need to use this net later because the
+                # changes fully covered it.
+                covered_t1[specific_index] = True
+            output.append((row_t2[net], specific_t1[path], row_t2[path]))
             continue
+
+    # Look from routes_t1 to routes_t2.
+    for i, row_t1 in enumerate(routes_t1):
+        if covered_t1[i]:
+            # No need to search for changes for this net.
+            continue
+
+        # Find the more specific prefix in routes_t2 that contains
+        # row_t1[net].
+        specific_t2, _ = _specific_container(routes_t2, row_t1[net])
+
+        if specific_t2 == None:
+            # row_t1[net] was removed.
+            output.append((row_t1[net], row_t1[path], "DEF"))
+            continue
+
+        if specific_t2[path] != row_t1[path]:
+            # The net changed its path.
+            output.append((row_t1[net], row_t1[path], specific_t2[path]))
+
+    # Sort output from lowest to highest ip and mask
+    output.sort(key=lambda three_tuple: three_tuple[0])
+
+    # Take out more general changes in favor of the more specific ones
+    # and print the output.
+    for i, three_tuple in enumerate(output):
+        if three_tuple[1] == "DEF":
+            # Find a more specific net for the change.
+            for j in range(i+1, len(output)):
+                if (output[j][0].overlaps(three_tuple[0]) and
+                        output[j][2] == three_tuple[2]):
+                    break
+            else:  # The net couldn't be found
+                print("{0}\n{1}\n{2}".format(*three_tuple), file=output_file)
+        elif three_tuple[2] == "DEF":
+            # Same as before but inspect the old path instead.
+            for j in range(i+1, len(output)):
+                if (output[j][0].overlaps(three_tuple[0]) and
+                        output[j][1] == three_tuple[1]):
+                    break
+            else:
+                print("{0}\n{1}\n{2}".format(*three_tuple), file=output_file)
+        else:
+            print("{0}\n{1}\n{2}".format(*three_tuple), file=output_file)
