@@ -3,7 +3,8 @@ import sys
 import re
 from tempfile import TemporaryFile
 from routechanges.change_detector import (get_rows,
-                                          aggregate_routes)
+                                          aggregate_routes,
+                                          detect_changes)
 from ipaddress import IPv4Network
 
 
@@ -134,10 +135,9 @@ class TestChangeDetection(unittest.TestCase):
             "test/change_detection_expected_output.txt")
 
     def test_change_detection(self):
-        # TODO: Make detect_changes() function.
-        detect_changes(file_t1, file_t2, output_file)
-        output_file.seek(0)
-        compare_files(self.output_file, self.expected_output_file, self)
+        detect_changes(self.file_t1, self.file_t2, self.output_file)
+        self.output_file.seek(0) # Rewind to compare
+        compare_files(self.output_file, self.expected_output, self)
 
     def tearDown(self):
         self.file_t1.close()
