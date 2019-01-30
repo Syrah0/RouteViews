@@ -1,5 +1,6 @@
 import sys
 import re
+from collections import deque
 from ipaddress import IPv4Network
 
 
@@ -174,27 +175,141 @@ def aggregate_routes(file, return_list=False, output_file=None):
         print("{0:18} {1}".format(str(network), path), file=output_file)
 
 
-def _specific_container(search_list, target_net):
-    """Returns the tuple and index for the most specific network in
-    search_list that contains target_net.
+def _merge_tables(routes_t1, routes_t2):
+    """Returns a list of 3-tuples where the first element is an
+    IPv4Network object, the second is the path for t1 and the third is
+    the path for t2. If a path is not present the correponding element
+    in the tuple will be None.
     """
-    # Net and path index for a tuple.
     net = 0
     path = 1
-    specific_tuple = None
-    specific_index = None
-    for j, tup in enumerate(search_list):
-        # If tup[net] contains target_net and is more specific than
-        # specific_tuple[net] then set specific_tuple = tup.
-        if (tup[net].overlaps(target_net) and
-                tup[net].prefixlen <= target_net.prefixlen and
-                (specific_tuple == None or
-                 tup[net].prefixlen > specific_tuple[net])):
-            specific_tuple = tup
-            specific_index = j
-    return specific_tuple, specific_index
+    i = 0
+    j = 0
+    output = []
+    while i < len(routes_t1) and j < len(routes_t2):
+        if routes_t1[i][net] < routes_t2[j][net]:
+            output.append((routes_t1[i][net], routes_t1[i][path], None))
+            i += 1
+        elif routes_t1[i][net] == routes_t2[j][net]:
+            output.append((routes_t1[i][net], routes_t1[i][path], routes_t2[j][path]))
+            i += 1
+            j += 1
+        else: # routes_t1[i][net] > routes_t2[j][net]
+            output.append((routes_t2[j][net], None, routes_t2[j][path]))
+            j += 1
+
+    if i < len(routes_t1):
+        while i < len(routes_t1):
+            output.append((routes_t1[i][net], routes_t1[i][path], None))
+            i += 1
+    if j < len(routes_t2):
+        while j < len(routes_t2):
+            output.append((routes_t2[j][net], None, routes_t2[j][path]))
+            j += 1
+
+    return output
 
 
+def _build_tree(routes):
+    # Net and path index for a tuple.
+    net = 0
+    path_t1 = 1
+    path_t2 = 2
+    rt= {}
+    stack = []
+    tree = {}
+    top_networks = []
+    for row in routes:
+        rt[row[net]] = (row[path_t1], row[path_t2])
+        tree[row[net]] = []
+        while len(stack)!=0 and not row[net].overlaps(stack[-1]):
+            stack.pop()
+        if len(stack) == 0:
+            stack.append(row[net])
+            top_networks.append(row[net])   
+            continue
+        if row[net].overlaps(stack[-1]):
+            tree[stack[-1]].append(row[net])
+            stack.append(row[net])
+
+    return tree, top_networks, rt
+
+
+def dfs(top_networks, tree, routes, output_file):
+
+    t1 = 0
+    t2 = 1
+    stack = top_networks.copy()
+    visited = dict()
+    children_paths = dict()
+    parent_node = dict()
+    path_till_node = dict()
+    for net in routes:
+        visited[net] = False
+        children_paths[net] = (set(), set())
+        parent_node[net] = None
+        path_till_node[net] = (None, None)
+
+    while len(stack) != 0:
+        current_node = stack[-1]
+
+        if visited[current_node]:
+            stack.pop()
+            if routes[current_node][t1] == None:
+                # Path not specified for t1
+                path_t1 = path_till_node[current_node][t1]
+                path_t2 = routes[current_node][t2]
+                if path_t1 != path_t2:  # Change
+                    # Make sure this is the more specific change.
+                    if path_t2 not in children_paths[current_node][t2]:
+                        path_str = "DEF" if path_t1 == None else path_t1
+                        print("{0}\n{1}\n{2}".format(str(current_node), path_str, path_t2), file=output_file)
+                        if parent_node[current_node] != None:
+                            children_paths[parent_node[current_node]][t1].add(path_t1)
+                            children_paths[parent_node[current_node]][t2].add(path_t2)  
+                    if parent_node[current_node] != None:
+                        children_paths[parent_node[current_node]] = (children_paths[parent_node[current_node]][t1].union(children_paths[current_node][t1]),
+                            children_paths[parent_node[current_node]][t2].union(children_paths[current_node][t2]))
+
+            elif routes[current_node][t2] == None:
+                # Path not specified for t2
+                path_t2 = path_till_node[current_node][t2]
+                path_t1 = routes[current_node][t1]
+                if path_t2 != path_t1:  # Change
+                    # Make sure this is the more specific change.
+                    if path_t1 not in children_paths[current_node][t1]:
+                        path_str = "DEF" if path_t2 == None else path_t2
+                        print("{0}\n{1}\n{2}".format(str(current_node), path_t1, path_str), file=output_file)
+                        if parent_node[current_node] != None:
+                            children_paths[parent_node[current_node]][t1].add(path_t1)
+                            children_paths[parent_node[current_node]][t2].add(path_t2) 
+                    if parent_node[current_node] != None:
+                        children_paths[parent_node[current_node]] = (children_paths[parent_node[current_node]][t1].union(children_paths[current_node][t1]),
+                            children_paths[parent_node[current_node]][t2].union(children_paths[current_node][t2]))
+
+            elif routes[current_node][t1] != routes[current_node][t2]:
+                # Change
+                path_t1 = routes[current_node][t1]
+                path_t2 = routes[current_node][t2]
+                # Make sure this is the more specific change.
+                if path_t2 not in children_paths[current_node][t2]:
+                    print("{0}\n{1}\n{2}".format(str(current_node), path_t1, path_t2), file=output_file)
+                    if parent_node[current_node] != None:
+                        children_paths[parent_node[current_node]][t1].add(path_t1)
+                        children_paths[parent_node[current_node]][t2].add(path_t2)
+                if parent_node[current_node] != None:
+                    children_paths[parent_node[current_node]] = (children_paths[parent_node[current_node]][t1].union(children_paths[current_node][t1]),
+                        children_paths[parent_node[current_node]][t2].union(children_paths[current_node][t2]))
+        else:
+            visited[current_node] = True
+            next_path_t1 = path_till_node[current_node][t1] if routes[current_node][t1] == None else routes[current_node][t1]
+            next_path_t2 = path_till_node[current_node][t2] if routes[current_node][t2] == None else routes[current_node][t2] 
+            for net in tree[current_node]:
+                stack.append(net)
+                parent_node[net] = current_node
+                path_till_node[net] = (next_path_t1, next_path_t2)
+
+        
 def detect_changes(file_t1, file_t2, output_file=None):
     """Find changes in routes of file_t2 repect to file_t1 and print
     them to output_file, if output_file is None then sys.stdout will
@@ -205,76 +320,8 @@ def detect_changes(file_t1, file_t2, output_file=None):
 
     routes_t1 = aggregate_routes(file_t1, return_list=True)
     routes_t2 = aggregate_routes(file_t2, return_list=True)
-    covered_t1 = [False for route in routes_t1]
+    
+    merged_tables = _merge_tables(routes_t1, routes_t2)
 
-    # Net and path index for a tuple.
-    net = 0
-    path = 1
-
-    # output will contain 3-tuples that have the network, the old path
-    # and the new path.
-    output = []
-
-    # Look from routes_t2 to routes_t1.
-    for row_t2 in routes_t2:
-        # Find the more specific prefix in routes_t1 that contains
-        # row_t2[net].
-        specific_t1, specific_index = _specific_container(routes_t1,
-                                                          row_t2[net])
-        if specific_t1 == None:
-            # row_t2[net] is new.
-            output.append((row_t2[net], "DEF", row_t2[path]))
-            continue
-
-        if specific_t1[path] != row_t2[path]:
-            # The net changed its path
-            if specific_t1[net] == row_t2[net]:
-                # We won't need to use this net later because the
-                # changes fully covered it.
-                covered_t1[specific_index] = True
-            output.append((row_t2[net], specific_t1[path], row_t2[path]))
-            continue
-
-    # Look from routes_t1 to routes_t2.
-    for i, row_t1 in enumerate(routes_t1):
-        if covered_t1[i]:
-            # No need to search for changes for this net.
-            continue
-
-        # Find the more specific prefix in routes_t2 that contains
-        # row_t1[net].
-        specific_t2, _ = _specific_container(routes_t2, row_t1[net])
-
-        if specific_t2 == None:
-            # row_t1[net] was removed.
-            output.append((row_t1[net], row_t1[path], "DEF"))
-            continue
-
-        if specific_t2[path] != row_t1[path]:
-            # The net changed its path.
-            output.append((row_t1[net], row_t1[path], specific_t2[path]))
-
-    # Sort output from lowest to highest ip and mask
-    output.sort(key=lambda three_tuple: three_tuple[0])
-
-    # Take out more general changes in favor of the more specific ones
-    # and print the output.
-    for i, three_tuple in enumerate(output):
-        if three_tuple[1] == "DEF":
-            # Find a more specific net for the change.
-            for j in range(i+1, len(output)):
-                if (output[j][0].overlaps(three_tuple[0]) and
-                        output[j][2] == three_tuple[2]):
-                    break
-            else:  # The net couldn't be found
-                print("{0}\n{1}\n{2}".format(*three_tuple), file=output_file)
-        elif three_tuple[2] == "DEF":
-            # Same as before but inspect the old path instead.
-            for j in range(i+1, len(output)):
-                if (output[j][0].overlaps(three_tuple[0]) and
-                        output[j][1] == three_tuple[1]):
-                    break
-            else:
-                print("{0}\n{1}\n{2}".format(*three_tuple), file=output_file)
-        else:
-            print("{0}\n{1}\n{2}".format(*three_tuple), file=output_file)
+    tree, top_networks, routes = _build_tree(merged_tables)
+    dfs(top_networks, tree, routes, output_file)
