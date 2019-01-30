@@ -11,8 +11,12 @@ from ipaddress import IPv4Network
 def compare_files(file1, file2, test_case):
     """Compares the lines of two files for a test_case object."""
     line_count = 0
-    for line1, line2 in zip(file1, file2):
+    while True:
         line_count += 1
+        line1 = file1.readline()
+        line2 = file2.readline()
+        if line1 == "" and line2 == "":
+            break
         test_case.assertEqual(
             line1, line2, "Line number {0} is not "
             "equal".format(line_count))
