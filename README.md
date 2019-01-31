@@ -10,7 +10,7 @@ guide.
 ## Testing
 
 Testing is done using the `unittest` module from the python standard library.
-To run all tests use the next command from the project root folder:
+To run all tests use the next command from the **project root folder**:
 
 	python -m unittest
 
@@ -29,7 +29,17 @@ Every library used in the `routechanges` module comes from the python standard
 library.
 
 The `routechanges` package contains the `change_detector` module that has
-the `detect_changes()` function, which is explained next.
+the `detect_changes()` function, which is explained below.
+
+The `change_detector` module also contains two additional useful functions,
+these are `get_rows()` and `aggregate_routes()`, the first returns an iterator
+to obtain the rows of a BGP routes file and the second function allows to
+reduce the number of rows of a BGP file printing the result or returning
+a list with the rows.
+
+**To use any of the functions listed below the BGP files must have their
+position set to 0.** 
+
 
 ### change_detector.detect_changes(file_t1, file_t2, output_file=None)
 
@@ -51,4 +61,42 @@ from routechanges import change_detector
 f1 = open("path/to/bgp_file_t1.txt")
 f2 = open("path/to/bgp_file_t2.txt")
 change_detector.detect_changes(f1, f2)  # Print changes to stdout
+```
+
+### change_detector.aggregate_routes(bgp_file, return_list=False, output_file=None)
+
+Aggregate BGP routes in `bgp_file`. The output of the function is ordered by
+network from lowest to highest ip and mask. If `return_list` is set to `True`
+the function will return a list of 2-tuples where for each tuple the first
+element will be an `IPv4Network` object and the second element will be the
+string of the path for that network. If `return_list` is `False` the output
+will be printed to `output_file` where each row of the output is formatted
+with the first column having a width of 18 characters and containing the
+network left aligned, then comes a space and the second column that contains
+the path for that network. The second column has variable width depending on
+the path and ends with a newline character. If `output_file` is None
+`sys.stdout` will be used. This function does not modify the given file.
+
+This function uses the `get_rows()` function internally.
+
+
+### change_detector.get_rows(bgp_file)
+
+Returns an iterator over the rows of the `bgp_file` containing only the information
+about network and path. The element returned for each iteration is a 2 element
+list with the first element as the string for the network and the second
+element the string for the path of AS's. The nodes i and ? are excluded from
+the path.
+
+Here is an example on how to use the `get_rows()` function:
+
+```python
+from routechanges import change_detector
+bgp_file = open("path/to/bgp_file.txt")
+iterator = change_detector.get_rows(bgp_file)
+for row in iterator:
+	net_str = row[0]
+	path_str = row[1]
+	print(net_str)
+	print(path_str)
 ```

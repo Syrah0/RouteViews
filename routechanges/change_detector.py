@@ -35,9 +35,9 @@ def _calculate_regexp(header_line):
 def get_rows(file):
     """ Returns an iterator over the rows of the file containing only
     the information about network and path. The element returned for
-    each itaration is a 2 element list with the first element as the 
+    each iteration is a 2 element list with the first element as the 
     string for the network and the second element the string for the
-    path of AS's.
+    path of AS's. The nodes i and ? are excluded from the path.
     """
     # Skip first 5 lines of the file header.
     for _ in range(5):
