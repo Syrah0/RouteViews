@@ -63,6 +63,26 @@ f2 = open("path/to/bgp_file_t2.txt")
 change_detector.detect_changes(f1, f2)  # Print changes to stdout
 ```
 
+#### Explanation for algorithm used in `detect_changes()`
+
+The `detect_changes()` function follows the next algorithm:
+
+* Aggregate the routes in file_t1 and file_t2.
+* Merge the lists obtained in the previous step into merged_routes
+* Build a tree for the networks using merged_routes, doing this we can
+  get a forest because there might be completely separated top networks.
+* Go over the tree/forest using an iterative version of DFS taking into
+  account:
+  * When we get to a node mark it as visited but don't unstack it till the
+    next time we get to it (when we return from its children).
+  * Spread the paths of the current node to its children so if any child node
+    does not have its path specified then it is covered by its parent.
+  * Once we get to a node that is marked as visited, unstack it, detect if the
+    path was changed and verify this is the most specific network where the
+    change originated by searching in the changes for its children, if nothing
+    is found print the change. Make the parent of the node inherit the changes
+    occurred till this point.
+
 ### change_detector.aggregate_routes(bgp_file, return_list=False, output_file=None)
 
 Aggregate BGP routes in `bgp_file`. The output of the function is ordered by
