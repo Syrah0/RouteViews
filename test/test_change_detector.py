@@ -130,7 +130,7 @@ class TestAggregateRoutes(unittest.TestCase):
 class TestChangeDetection(unittest.TestCase):
 
     def setUp(self):
-        # Files for times 1 and 2.
+        # Files for times t1 and t2.
         self.file_t1 = open("test/change_detection_test_file_t1.txt")
         self.file_t2 = open("test/change_detection_test_file_t2.txt")
 
@@ -139,8 +139,11 @@ class TestChangeDetection(unittest.TestCase):
             "test/change_detection_expected_output.txt")
 
     def test_change_detection(self):
+        """Tests whether the output from detect_changes() is equal to
+        the contents from the expected_output file.
+        """
         detect_changes(self.file_t1, self.file_t2, self.output_file)
-        self.output_file.seek(0) # Rewind to compare
+        self.output_file.seek(0)  # Rewind to compare
         compare_files(self.output_file, self.expected_output, self)
 
     def tearDown(self):

@@ -1,6 +1,5 @@
 import sys
 import re
-from collections import deque
 from ipaddress import IPv4Network
 
 
@@ -36,8 +35,9 @@ def _calculate_regexp(header_line):
 def get_rows(file):
     """ Returns an iterator over the rows of the file containing only
     the information about network and path. The element returned for
-    each itaration is a list with the first element as the string for
-    the network and the second element the string for the path of AS's.
+    each itaration is a 2 element list with the first element as the 
+    string for the network and the second element the string for the
+    path of AS's.
     """
     # Skip first 5 lines of the file header.
     for _ in range(5):
@@ -234,9 +234,10 @@ def _build_tree(routes):
     Returns three elements:
     The first element is a dict object as an adjacency list where each 
     key-value pair is an IPv4Network object and the list of IPv4Network
-    ojects that are direct children of that network.
-    The second element is the list of top IPv4Network objects that are
-    not children of any other network.
+    ojects that are direct children of that network. For each network
+    its list is ordered from lowest to highest ip and mask.
+    The second element is the ordered list of top IPv4Network objects
+    that are not children of any other network.
     The third element is the routes list converted into a dict object
     where each key-value pair is the IPv4Network object and the
     corresponding 2-tuple that has the path for time t1 as first element
@@ -279,7 +280,13 @@ def detect_changes(file_t1, file_t2, output_file=None):
     """Find changes in routes of file_t2 repect to file_t1 and print
     them to output_file, if output_file is None then sys.stdout will be
     used. The changes are printed in order by network from highest to
-    lowest ip and mask.
+    lowest ip and mask, where for every change detected the format is
+    the next: first comes the network in a single line, next the old
+    path and then the new path each in a single line, then come the
+    lines for the next detected change. If the old path for a network
+    is unspecified, meaning its path was the default route, then the
+    string "DEF" will be printed in the corresponding line instead of
+    the path, the same goes for an unspecified new path. 
     """
     if output_file is None:
         output_file = sys.stdout
@@ -391,6 +398,7 @@ def detect_changes(file_t1, file_t2, output_file=None):
 
         else:  # visited[current_node] = False
             visited[current_node] = True
+            # Get the paths that are propagated to the children nodes.
             if path_t1 == None:
                 next_path_t1 = path_till_node[current_node][t1]
             else:
@@ -401,6 +409,7 @@ def detect_changes(file_t1, file_t2, output_file=None):
             else:
                 next_path_t2 = path_t2
 
+            # Set the propagated paths and stack children nodes.
             for net in tree[current_node]:
                 stack.append(net)
                 parent_node[net] = current_node
