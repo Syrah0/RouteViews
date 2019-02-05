@@ -54,6 +54,9 @@ for a network is unspecified, meaning its path was the default route, then
 the string **"DEF"** will be printed in the corresponding line instead of the
 path, the same goes for an unspecified new path.
 
+**For files of size around 60 MB the execution time of the function should be
+around 1 minute or less.**
+
 Here is an example on how to use the `detect_changes()` function:
 
 ```python
